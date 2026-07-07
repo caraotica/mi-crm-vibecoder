@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# convex (local dev backend state; convex/_generated IS committed on purpose)
+/.convex
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
