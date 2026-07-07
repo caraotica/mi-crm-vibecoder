@@ -29,9 +29,10 @@ npm install
 npm run dev
 ```
 
-Abre http://localhost:3000 — redirige a `/hoy`. Ahora mismo la sesión es un
-mock (`src/lib/session.ts`, rol `propietaria`) hasta que se implemente el
-login real (Linear WUA-8).
+Abre http://localhost:3000 — de momento solo hay una pantalla de
+"estructura base lista". Las pantallas reales (Login, Hoy, Clientes, Ventas,
+Equipo...) se van a construir una a una siguiendo las tareas del backlog en
+Linear (proyecto CRM-MVP), no todas de golpe.
 
 ## Conectar Convex (paso manual obligatorio)
 
@@ -56,23 +57,11 @@ Deja `npx convex dev` corriendo en una terminal aparte mientras desarrollas
 ```
 src/
   app/
-    page.tsx              → redirige a /hoy
-    login/                → pantalla de login (WUA-8/47)
-    (app)/                → todo lo que vive dentro de la navegación principal
-      layout.tsx           → AppShell (bottom tabs móvil / sidebar escritorio)
-      hoy/                 → pantalla de inicio (WUA-17/18/62)
-      clientes/            → lista (WUA-9) + ficha [id] (WUA-11)
-      ventas/              → pipeline agregado (WUA-61)
-      equipo/              → gestión de usuarios, solo rol propietaria (WUA-59)
+    page.tsx              → placeholder ("estructura base lista"), sin pantallas todavía
+    layout.tsx             → fuentes (Inter/JetBrains Mono) + ConvexClientProvider
+    globals.css            → tokens del Vibe CRM Design System (Tailwind v4 @theme)
   components/
-    ui/                    → primitivos del design system (Button, Badge, Card...)
-    layout/                → AppShell
     providers/             → ConvexClientProvider
-    hoy/ clientes/ ventas/ equipo/ overlays/
-                            → README.md en cada carpeta con lo que falta construir
-                              y su tarea de Linear correspondiente
-  lib/
-    session.ts             → TEMPORAL: mock de sesión hasta WUA-8
   types/
     index.ts               → tipos compartidos, reflejan el PRD (sección "Datos")
 convex/
@@ -83,9 +72,12 @@ convex/
                               básica del PRD (p. ej. "al menos un teléfono o email")
 ```
 
+Todavía no hay rutas ni componentes de pantalla — se irán añadiendo tarea a
+tarea según el backlog de Linear (proyecto CRM-MVP), no todos de una vez.
+
 ⚠️ **Gap conocido:** `suscripciones.ts` cubre el modelo de datos, pero la UI
 para registrar suscripciones y sus alertas de renovación/impago todavía no
-está diseñada (ver Linear WUA-15 / WUA-64) — no implementar esas pantallas
+está diseñada (ver Linear WUA-15 / WUA-64) — no construir esas pantallas
 hasta que exista el diseño.
 
 ## Desplegar en Railway
