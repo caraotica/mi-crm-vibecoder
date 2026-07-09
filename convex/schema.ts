@@ -28,6 +28,7 @@ export default defineSchema({
     empresa: v.optional(v.string()),
     telefono: v.optional(v.string()),
     email: v.optional(v.string()),
+    nota: v.optional(v.string()),
     canalOrigen: v.optional(
       v.union(
         v.literal("web"),
@@ -69,6 +70,9 @@ export default defineSchema({
     fechaProgramada: v.number(), // epoch ms (día)
     completado: v.boolean(),
     fechaCompletado: v.optional(v.number()),
+    // Token de versión (epoch ms) para el guard optimista de marcarHecho:
+    // evita el problema ABA (true→false→true) que un booleano no detecta.
+    actualizadoEn: v.number(),
   })
     .index("by_cliente", ["clienteId"])
     .index("by_completado_fecha", ["completado", "fechaProgramada"])

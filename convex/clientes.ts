@@ -1,5 +1,15 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query } from "./functions";
+import { requireTrimmed, optionalTrimmed } from "./validation";
+
+const canalOrigenV = v.optional(
+  v.union(
+    v.literal("web"),
+    v.literal("redes"),
+    v.literal("email"),
+    v.literal("whatsapp"),
+  ),
+);
 
 /** Lista de clientes con búsqueda en vivo por nombre, teléfono o email (WUA-9). */
 export const list = query({
@@ -16,10 +26,17 @@ export const list = query({
   },
 });
 
-/** Ficha de cliente (WUA-11). */
+/** Ficha de cliente (WUA-11). `id` llega como string sin validar desde la URL
+ * (ruta dinámica /clientes/[id]) — se usa `normalizeId` en vez de `v.id()`
+ * para que un id con formato inválido devuelva `null` (mismo tratamiento que
+ * "no encontrado") en vez de lanzar un error de parseo. */
 export const get = query({
-  args: { id: v.id("clientes") },
-  handler: async (ctx, args) => ctx.db.get(args.id),
+  args: { id: v.string() },
+  handler: async (ctx, args) => {
+    const id = ctx.db.normalizeId("clientes", args.id);
+    if (!id) return null;
+    return ctx.db.get(id);
+  },
 });
 
 /** Alta rápida de cliente (WUA-10). Nombre requerido + al menos teléfono o email. */
@@ -29,21 +46,27 @@ export const create = mutation({
     empresa: v.optional(v.string()),
     telefono: v.optional(v.string()),
     email: v.optional(v.string()),
-    canalOrigen: v.optional(
-      v.union(
-        v.literal("web"),
-        v.literal("redes"),
-        v.literal("email"),
-        v.literal("whatsapp"),
-      ),
-    ),
+    nota: v.optional(v.string()),
+    canalOrigen: canalOrigenV,
   },
   handler: async (ctx, args) => {
-    if (!args.nombre.trim()) throw new Error("El nombre es obligatorio");
-    if (!args.telefono?.trim() && !args.email?.trim()) {
+    const nombre = requireTrimmed(args.nombre, "el nombre", 120);
+    const empresa = optionalTrimmed(args.empresa, "la empresa", 120);
+    const telefono = optionalTrimmed(args.telefono, "el teléfono", 40);
+    const email = optionalTrimmed(args.email, "el email", 200);
+    const nota = optionalTrimmed(args.nota, "la nota", 2000);
+    if (!telefono && !email) {
       throw new Error("Añade al menos un teléfono o un email");
     }
-    return ctx.db.insert("clientes", { ...args, estado: "nuevo_lead" });
+    return ctx.db.insert("clientes", {
+      nombre,
+      empresa,
+      telefono,
+      email,
+      nota,
+      canalOrigen: args.canalOrigen,
+      estado: "nuevo_lead",
+    });
   },
 });
 
@@ -55,14 +78,8 @@ export const update = mutation({
     empresa: v.optional(v.string()),
     telefono: v.optional(v.string()),
     email: v.optional(v.string()),
-    canalOrigen: v.optional(
-      v.union(
-        v.literal("web"),
-        v.literal("redes"),
-        v.literal("email"),
-        v.literal("whatsapp"),
-      ),
-    ),
+    nota: v.optional(v.string()),
+    canalOrigen: canalOrigenV,
     estado: v.optional(
       v.union(
         v.literal("nuevo_lead"),
@@ -73,7 +90,14 @@ export const update = mutation({
       ),
     ),
   },
-  handler: async (ctx, { id, ...patch }) => {
-    await ctx.db.patch(id, patch);
+  handler: async (ctx, { id, nombre, empresa, telefono, email, nota, ...rest }) => {
+    await ctx.db.patch(id, {
+      ...rest,
+      ...(nombre !== undefined && { nombre: requireTrimmed(nombre, "el nombre", 120) }),
+      ...(empresa !== undefined && { empresa: optionalTrimmed(empresa, "la empresa", 120) }),
+      ...(telefono !== undefined && { telefono: optionalTrimmed(telefono, "el teléfono", 40) }),
+      ...(email !== undefined && { email: optionalTrimmed(email, "el email", 200) }),
+      ...(nota !== undefined && { nota: optionalTrimmed(nota, "la nota", 2000) }),
+    });
   },
 });

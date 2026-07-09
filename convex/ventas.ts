@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query } from "./functions";
+import { requireTrimmed, requirePositiveAmount } from "./validation";
 
 const estadoV = v.union(
   v.literal("abierta"),
@@ -42,10 +43,12 @@ export const create = mutation({
     autorId: v.id("usuarios"),
   },
   handler: async (ctx, args) => {
-    if (!args.producto.trim()) throw new Error("Falta el producto/concepto");
-    if (!(args.monto > 0)) throw new Error("El importe debe ser mayor que 0");
+    const producto = requireTrimmed(args.producto, "el producto/concepto", 120);
+    const monto = requirePositiveAmount(args.monto, "el importe");
     return ctx.db.insert("ventasPuntuales", {
       ...args,
+      producto,
+      monto,
       fecha: args.fecha ?? Date.now(),
     });
   },

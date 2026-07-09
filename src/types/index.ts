@@ -37,6 +37,7 @@ export interface Cliente {
   empresa?: string;
   telefono?: string;
   email?: string;
+  nota?: string;
   canalOrigen?: CanalOrigen;
   estado: EstadoCliente;
   fechaAlta: number;
@@ -60,6 +61,8 @@ export interface Seguimiento {
   fechaProgramada: number;
   completado: boolean;
   fechaCompletado?: number;
+  /** Token de versión (epoch ms) para el guard optimista de marcarHecho. */
+  actualizadoEn: number;
 }
 
 export interface VentaPuntual {

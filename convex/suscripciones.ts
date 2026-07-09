@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query } from "./functions";
+import { requireTrimmed, requirePositiveAmount } from "./validation";
 
 /**
  * ⚠️ Bloqueado por un gap de diseño (ver Linear WUA-15/WUA-64): el prototipo
@@ -48,9 +49,9 @@ export const create = mutation({
     fechaProximoCobro: v.number(),
   },
   handler: async (ctx, args) => {
-    if (!args.producto.trim()) throw new Error("Falta el producto/servicio");
-    if (!(args.monto > 0)) throw new Error("El importe debe ser mayor que 0");
-    return ctx.db.insert("suscripciones", { ...args, estado: "activa" });
+    const producto = requireTrimmed(args.producto, "el producto/servicio", 120);
+    const monto = requirePositiveAmount(args.monto, "el importe");
+    return ctx.db.insert("suscripciones", { ...args, producto, monto, estado: "activa" });
   },
 });
 

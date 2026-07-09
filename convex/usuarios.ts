@@ -1,5 +1,7 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query } from "./functions";
+import type { MutationCtx } from "./_generated/server";
+import { requireTrimmed } from "./validation";
 
 /** Lista de usuarios para la pantalla Equipo (WUA-59, solo rol propietaria). */
 export const list = query({
@@ -26,12 +28,14 @@ export const create = mutation({
     authId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const nombre = requireTrimmed(args.nombre, "el nombre", 120);
+    const email = requireTrimmed(args.email, "el email", 200);
     const existente = await ctx.db
       .query("usuarios")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .withIndex("by_email", (q) => q.eq("email", email))
       .unique();
     if (existente) throw new Error("Ya existe un usuario con ese email");
-    return ctx.db.insert("usuarios", args);
+    return ctx.db.insert("usuarios", { ...args, nombre, email });
   },
 });
 
@@ -42,11 +46,15 @@ export const update = mutation({
     email: v.optional(v.string()),
     rol: v.optional(v.union(v.literal("propietaria"), v.literal("comercial"))),
   },
-  handler: async (ctx, { id, ...patch }) => {
-    if (patch.rol === "comercial") {
+  handler: async (ctx, { id, nombre, email, ...rest }) => {
+    if (rest.rol === "comercial") {
       await assertQuedaUnaPropietaria(ctx, id);
     }
-    await ctx.db.patch(id, patch);
+    await ctx.db.patch(id, {
+      ...rest,
+      ...(nombre !== undefined && { nombre: requireTrimmed(nombre, "el nombre", 120) }),
+      ...(email !== undefined && { email: requireTrimmed(email, "el email", 200) }),
+    });
   },
 });
 
@@ -64,14 +72,10 @@ export const remove = mutation({
   },
 });
 
-async function assertQuedaUnaPropietaria(
-  ctx: { db: { query: (t: "usuarios") => any } },
-  idAExcluir: string,
-) {
+async function assertQuedaUnaPropietaria(ctx: MutationCtx, idAExcluir: string) {
   const usuarios = await ctx.db.query("usuarios").collect();
   const otrasPropietarias = usuarios.filter(
-    (u: { _id: string; rol: string }) =>
-      u.rol === "propietaria" && u._id !== idAExcluir,
+    (u) => u.rol === "propietaria" && u._id !== idAExcluir,
   );
   if (otrasPropietarias.length === 0) {
     throw new Error("Debe quedar al menos una propietaria en el equipo");

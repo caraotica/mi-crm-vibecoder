@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query } from "./functions";
+import { requireTrimmed } from "./validation";
 
 /** Historial de interacciones de un cliente, más reciente primero (WUA-11). */
 export const listByCliente = query({
@@ -28,9 +29,10 @@ export const create = mutation({
     fecha: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    if (!args.contenido.trim()) throw new Error("La nota no puede estar vacía");
+    const contenido = requireTrimmed(args.contenido, "la nota", 2000);
     return ctx.db.insert("interacciones", {
       ...args,
+      contenido,
       fecha: args.fecha ?? Date.now(),
     });
   },

@@ -9,10 +9,15 @@
  */
 
 import type * as clientes from "../clientes.js";
+import type * as errors from "../errors.js";
+import type * as functions from "../functions.js";
 import type * as interacciones from "../interacciones.js";
+import type * as localOnlyGuard from "../localOnlyGuard.js";
+import type * as seed from "../seed.js";
 import type * as seguimientos from "../seguimientos.js";
 import type * as suscripciones from "../suscripciones.js";
 import type * as usuarios from "../usuarios.js";
+import type * as validation from "../validation.js";
 import type * as ventas from "../ventas.js";
 
 import type {
@@ -23,10 +28,15 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   clientes: typeof clientes;
+  errors: typeof errors;
+  functions: typeof functions;
   interacciones: typeof interacciones;
+  localOnlyGuard: typeof localOnlyGuard;
+  seed: typeof seed;
   seguimientos: typeof seguimientos;
   suscripciones: typeof suscripciones;
   usuarios: typeof usuarios;
+  validation: typeof validation;
   ventas: typeof ventas;
 }>;
 
