@@ -29,14 +29,17 @@ npm install
 npm run dev
 ```
 
-Abre http://localhost:3000 — redirige a `/hoy`. Ya están construidas: la
-pantalla "Hoy" (WUA-17/18, seguimientos atrasados/para hoy/próximas), la
-navegación principal (WUA-23, sidebar escritorio / tab bar móvil) y los 4
-overlays de accesos rápidos (Nuevo cliente, Nueva tarea, Anotar interacción,
-Registrar venta — WUA-10/62/12/13). `/clientes`, `/ventas` y `/equipo` son
-todavía rutas "Próximamente" (stub) — sus pantallas reales y el login
-(WUA-8/9/59/61) se irán construyendo una a una siguiendo el backlog de
-Linear (proyecto CRM-MVP), no todas de golpe.
+Abre http://localhost:3000 — redirige a `/login` si no hay sesión, o a
+`/hoy` si ya la hay. Ya están construidas: login real con email+contraseña
+(WUA-8, sesión persistente ~30 días, rutas protegidas por `src/middleware.ts`),
+la pantalla "Hoy" (WUA-17/18, seguimientos atrasados/para hoy/próximas), la
+navegación principal (WUA-23, sidebar escritorio / tab bar móvil, con
+"Equipo" solo para el rol "propietaria") y los 4 overlays de accesos rápidos
+(Nuevo cliente, Nueva tarea, Anotar interacción, Registrar venta —
+WUA-10/62/12/13). `/clientes`, `/ventas` y `/equipo` son todavía rutas
+"Próximamente" (stub) — sus pantallas reales (WUA-9/59/61) se irán
+construyendo una a una siguiendo el backlog de Linear (proyecto CRM-MVP),
+no todas de golpe.
 
 ## Conectar Convex (paso manual obligatorio)
 
@@ -56,26 +59,42 @@ module './_generated/server'" — es esperado, no es un bug del scaffolding.
 Deja `npx convex dev` corriendo en una terminal aparte mientras desarrollas
 (sincroniza `convex/*.ts` en caliente, como el `next dev` de al lado).
 
-**Paso obligatorio adicional** (ver "No desplegar todavía" abajo): sin esto,
-todas las queries/mutations rechazan.
+**Configurar Convex Auth (WUA-8, paso obligatorio adicional)**: cada
+deployment de Convex necesita sus propias claves de firma de JWT. Generarlas
+localmente (sin CLI interactiva, con un script Node usando `jose`, ya
+disponible como dependencia transitiva) y configurarlas una vez:
 
 ```bash
-npx convex env set CRM_LOCAL_ONLY_MODE true
+npx convex env set JWT_PRIVATE_KEY -- "$(cat tu-clave-privada.pem)"
+npx convex env set JWKS -- "$(cat tu-jwks.json)"
+npx convex env set SITE_URL http://localhost:3000
+```
+
+(Ver `convex/auth.config.ts`/`convex/auth.ts` para el resto de la config —
+son fijos, no hace falta tocarlos.)
+
+Luego siembra los datos de prueba:
+
+```bash
 npx convex run seed:seedDemo
 ```
 
 `seedDemo` es idempotente — ejecutarlo varias veces no duplica datos — y crea
-a Marta (propietaria) y Carlos (comercial) más varios clientes/seguimientos
-de prueba para que la pantalla Hoy no esté siempre vacía.
+a Marta (propietaria) y Carlos (comercial) **con sus cuentas de acceso reales**
+(email + contraseña `vibecrm-2026`, ver `convex/seed.ts` — cámbiala antes de
+dar acceso real a usuarios finales) más varios clientes/seguimientos de
+prueba para que la pantalla Hoy no esté siempre vacía.
 
 ## Estructura
 
 ```
 src/
+  proxy.ts                  → protege rutas (WUA-8): sin sesión → /login, con sesión en /login → /hoy
   app/
     page.tsx              → redirige a /hoy
-    layout.tsx             → fuentes (Inter/JetBrains Mono) + ConvexClientProvider
+    layout.tsx             → fuentes + ConvexAuthNextjsServerProvider + ConvexClientProvider
     globals.css            → tokens del Vibe CRM Design System (Tailwind v4 @theme)
+    login/page.tsx          → pantalla de login (WUA-8/47)
     (app)/
       layout.tsx           → ToastProvider + AppShell (nav principal, WUA-23)
       hoy/page.tsx          → pantalla "Hoy" (WUA-17/18)
@@ -84,15 +103,16 @@ src/
       ventas/page.tsx        → stub "Próximamente" (WUA-61)
       equipo/page.tsx         → gate de rol + stub "Próximamente" (WUA-59)
   components/
-    layout/AppShell.tsx     → sidebar/tab bar, badge de atrasados
+    auth/LoginForm.tsx      → formulario de login (4 estados: vacío/relleno/cargando/error)
+    layout/AppShell.tsx     → sidebar/tab bar, badge de atrasados, botón "Cerrar sesión"
     hoy/                    → QuickActionsPanel, SeguimientoSection/Item, overlayState
     overlays/               → OverlayShell (Radix Dialog), ClienteSelect, los 4 formularios
     ui/                     → Avatar, Badge, Button, Card, EmptyState, Input, Select,
                               SegmentedControl, Toast, ComingSoon
-    providers/              → ConvexClientProvider
+    providers/              → ConvexClientProvider (envuelto con ConvexAuthNextjsProvider)
   hooks/useSeguimientosHoy.ts → wrapper compartido de listHoy (Hoy ↔ badge de nav)
   lib/
-    session.ts              → sesión mock (TODO WUA-8)
+    session.ts              → useUsuarioActual() — sesión real sobre Convex Auth (WUA-8)
     toast.tsx                → ToastProvider/useToast
     seguimientoFecha.ts      → helpers de fecha puros (Europe/Madrid), compartidos con convex/*.ts
     seguimientoFechaLabel.ts → etiquetas relativas (usa date-fns, solo cliente)
@@ -100,43 +120,45 @@ src/
   types/
     index.ts               → tipos compartidos, reflejan el PRD (sección "Datos")
 convex/
-  schema.ts                → esquema completo (usuarios, clientes, interacciones,
-                              seguimientos, ventasPuntuales, suscripciones)
-  functions.ts              → query/mutation envueltos con el guard CRM_LOCAL_ONLY_MODE
-  localOnlyGuard.ts, errors.ts, validation.ts → helpers compartidos
+  schema.ts                → esquema completo (...authTables + usuarios, clientes,
+                              interacciones, seguimientos, ventasPuntuales, suscripciones)
+  auth.config.ts, auth.ts, http.ts → configuración de Convex Auth (WUA-8)
+  authGuard.ts              → requireAuthUserId/requireUsuarioActual
+  functions.ts              → query/mutation envueltos que exigen sesión autenticada
+  errors.ts, validation.ts  → helpers compartidos
   clientes.ts interacciones.ts seguimientos.ts ventas.ts suscripciones.ts usuarios.ts
-                            → queries/mutations por entidad, con validación server-side
-  seed.ts                   → datos de prueba idempotentes (`npx convex run seed:seedDemo`)
+                            → queries/mutations por entidad, con validación y
+                              autorización server-side
+  seed.ts                   → datos de prueba + cuentas de acceso idempotentes
+                              (`npx convex run seed:seedDemo`)
 ```
 
 Falta por construir, tarea a tarea según el backlog de Linear (proyecto
-CRM-MVP): login real (WUA-8), Lista de clientes (WUA-9), Ficha completa
-(WUA-11), Ventas (WUA-61), Equipo (WUA-59).
+CRM-MVP): Lista de clientes (WUA-9), Ficha completa (WUA-11), Ventas (WUA-61),
+Equipo (WUA-59), Perfil/Mi cuenta (WUA-60).
 
 ⚠️ **Gap conocido:** `suscripciones.ts` cubre el modelo de datos, pero la UI
 para registrar suscripciones y sus alertas de renovación/impago todavía no
 está diseñada (ver Linear WUA-15 / WUA-64) — no construir esas pantallas
 hasta que exista el diseño.
 
-## ⚠️ No desplegar todavía (frontera de autorización)
+## Autorización (WUA-8)
 
-Las Convex queries/mutations actuales (`seguimientos`, `interacciones`, `ventasPuntuales`,
-`usuarios`, etc.) **no verifican identidad en el servidor**: `responsableId`/`autorId` se
-reciben tal cual del cliente, y no hay ningún guard de rol en las funciones — solo la UI
-decide qué mostrar. Cualquiera con la URL pública del deployment de Convex podría llamarlas
-directamente y suplantar a Marta o Carlos, o leer el listado de usuarios/clientes.
+Todas las Convex queries/mutations exigen una sesión autenticada
+(`convex/functions.ts` → `requireAuthUserId`, ver `convex/authGuard.ts`) —
+sin sesión válida, rechazan. `usuarios.create/update/remove` exigen además
+rol `"propietaria"`. `autorId`/`autor` de interacciones/ventas y el
+`responsableId` por defecto de seguimientos se derivan siempre del usuario
+autenticado en servidor, nunca de un argumento que mande el cliente.
 
-Esto **no se deja solo documentado**: `convex/localOnlyGuard.ts` + `convex/functions.ts`
-hacen que TODA query/mutation rechace por defecto a menos que la variable de entorno
-`CRM_LOCAL_ONLY_MODE` valga `"true"` en ese deployment de Convex (falla cerrado, no abierto).
-Configúrala una vez en tu deployment de desarrollo con
-`npx convex env set CRM_LOCAL_ONLY_MODE true` (ver "Conectar Convex" arriba).
+`convex/seed.ts` es la única excepción deliberada: usa `internalMutation`/
+`internalAction` (no pasa por `convex/functions.ts`) porque bootstrapea las
+primeras cuentas antes de que pueda existir ninguna sesión — solo invocable
+vía `npx convex run` (credenciales de admin/deploy-key), nunca desde el
+cliente público.
 
-**No desplegar este repo a Railway (ni compartir la URL de Convex fuera del equipo, ni poner
-`CRM_LOCAL_ONLY_MODE=true` en un deployment de producción) hasta que exista WUA-8** (login/auth
-real) y las mutations deriven `responsableId`/`autorId` de la identidad autenticada en
-servidor, no de argumentos del cliente. Hasta entonces, uso estrictamente local/desarrollo
-con la sesión mock de `src/lib/session.ts`.
+El registro público está bloqueado a nivel de servidor (no solo omitido de
+la UI): ver el `profile()` del provider Password en `convex/auth.ts`.
 
 ## Desplegar en Railway
 
@@ -152,17 +174,19 @@ push** — en este orden:
 
 1. **Crear el deployment de producción de Convex** (distinto del de `convex
    dev`): `npx convex deploy`. Guarda la URL que te da.
-2. **Configurar `NEXT_PUBLIC_CONVEX_URL`** en las variables de entorno del
-   servicio en Railway, con la URL de ese deployment de producción.
-3. **NO configurar `CRM_LOCAL_ONLY_MODE` en ese deployment de Convex de
-   producción** (dejarla sin definir). Por diseño, todas las queries/
-   mutations rechazan si no vale `"true"` — así el backend queda
-   inutilizable-pero-seguro en producción hasta que exista WUA-8 (login real),
-   en vez de aceptar tráfico sin autenticación. Ver "No desplegar todavía"
-   arriba.
-4. `git push` — con esto Railway construye y publica automáticamente.
+2. **Generar y configurar `JWT_PRIVATE_KEY`/`JWKS`/`SITE_URL` en ESE
+   deployment de producción de Convex** (claves propias, distintas de las de
+   dev — nunca reutilizar las mismas). `SITE_URL` debe ser la URL pública de
+   Railway (`https://tu-servicio.up.railway.app`), no `localhost`.
+3. **Configurar `NEXT_PUBLIC_CONVEX_URL`** en las variables de entorno del
+   servicio en Railway, con la URL del deployment de producción de Convex.
+4. **Ejecutar el seed contra producción** (`npx convex run seed:seedDemo
+   --prod`) para crear las cuentas reales de Marta/Carlos — y **cambiar la
+   contraseña compartida** (`SEED_PASSWORD` en `convex/seed.ts`) antes de
+   dar acceso real a usuarios finales.
+5. `git push` — con esto Railway construye y publica automáticamente.
 
-Sin el paso 1-2, la build de Next.js en Railway compila igual (los tipos de
-`convex/_generated/` ya están commiteados), pero la app en producción no
-podrá hablar con ningún Convex deployment real hasta que `NEXT_PUBLIC_CONVEX_URL`
-apunte a uno.
+Sin los pasos 1-3, la build de Next.js en Railway compila igual (los tipos de
+`convex/_generated/` ya están commiteados), pero la app en producción no podrá
+autenticar a nadie hasta que las claves de Convex Auth y
+`NEXT_PUBLIC_CONVEX_URL` apunten al deployment de producción correcto.

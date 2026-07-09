@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./functions";
 import { requireTrimmed, requirePositiveAmount } from "./validation";
+import { requireUsuarioActual } from "./authGuard";
 
 const estadoV = v.union(
   v.literal("abierta"),
@@ -32,7 +33,8 @@ export const listByCliente = query({
       .collect(),
 });
 
-/** Registrar venta puntual / oportunidad (WUA-14). */
+/** Registrar venta puntual / oportunidad (WUA-14). `autorId` se deriva
+ * siempre del usuario autenticado (no es un argumento del cliente). */
 export const create = mutation({
   args: {
     clienteId: v.id("clientes"),
@@ -40,15 +42,16 @@ export const create = mutation({
     monto: v.number(),
     estado: estadoV,
     fecha: v.optional(v.number()),
-    autorId: v.id("usuarios"),
   },
   handler: async (ctx, args) => {
     const producto = requireTrimmed(args.producto, "el producto/concepto", 120);
     const monto = requirePositiveAmount(args.monto, "el importe");
+    const autorId = (await requireUsuarioActual(ctx))._id;
     return ctx.db.insert("ventasPuntuales", {
       ...args,
       producto,
       monto,
+      autorId,
       fecha: args.fecha ?? Date.now(),
     });
   },

@@ -2,16 +2,15 @@
 
 import { UserCog, Lock } from "lucide-react";
 import { ComingSoon } from "@/components/ui/ComingSoon";
-import { useMockSession } from "@/lib/session";
+import { useUsuarioActual } from "@/lib/session";
 
 /**
- * Gate de rol para /equipo (WUA-23/WUA-59). Es un filtro de navegación —
- * defensa en caso de visita directa por URL, igual que el filtro de
- * AppShell — NO es autorización real: la Convex function subyacente no
- * verifica rol (ver frontera de autorización en el README).
+ * Gate de rol para /equipo (WUA-23/WUA-59). Es UX (evita el parpadeo/flash
+ * de contenido) — la autorización real ya está verificada en servidor
+ * (`convex/usuarios.ts`: create/update/remove exigen rol "propietaria").
  */
 export default function EquipoPage() {
-  const { usuario, isLoading } = useMockSession();
+  const { usuario, isLoading } = useUsuarioActual();
 
   if (isLoading) return null;
 

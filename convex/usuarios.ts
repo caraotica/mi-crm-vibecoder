@@ -1,7 +1,24 @@
 import { v } from "convex/values";
 import { mutation, query } from "./functions";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import type { MutationCtx } from "./_generated/server";
 import { requireTrimmed } from "./validation";
+import { requireUsuarioActual } from "./authGuard";
+
+/** Perfil de `usuarios` del usuario autenticado actual, o `null` si su
+ * identidad de Convex Auth no tiene fila de `usuarios` vinculada todavía
+ * (no debería pasar tras el seed). Usado por el hook de sesión real (WUA-8). */
+export const getCurrent = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUserId = await getAuthUserId(ctx);
+    if (!authUserId) return null;
+    return ctx.db
+      .query("usuarios")
+      .withIndex("by_authId", (q) => q.eq("authId", authUserId))
+      .unique();
+  },
+});
 
 /** Lista de usuarios para la pantalla Equipo (WUA-59, solo rol propietaria). */
 export const list = query({
@@ -18,8 +35,9 @@ export const getByEmail = query({
       .unique(),
 });
 
-/** Añadir usuario al equipo (WUA-59). La cuenta de acceso real (password) se
- * crea en el proveedor de auth — PUNTO DE INTEGRACIÓN, ver authId. */
+/** Añadir usuario al equipo (WUA-59). Solo la propietaria puede gestionar el
+ * equipo — verificado aquí, no solo en la UI. La cuenta de acceso real
+ * (password) se crea aparte, en el proveedor de auth (ver authId). */
 export const create = mutation({
   args: {
     nombre: v.string(),
@@ -28,6 +46,10 @@ export const create = mutation({
     authId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const yo = await requireUsuarioActual(ctx);
+    if (yo.rol !== "propietaria") {
+      throw new Error("Solo la propietaria puede gestionar el equipo");
+    }
     const nombre = requireTrimmed(args.nombre, "el nombre", 120);
     const email = requireTrimmed(args.email, "el email", 200);
     const existente = await ctx.db
@@ -47,6 +69,10 @@ export const update = mutation({
     rol: v.optional(v.union(v.literal("propietaria"), v.literal("comercial"))),
   },
   handler: async (ctx, { id, nombre, email, ...rest }) => {
+    const yo = await requireUsuarioActual(ctx);
+    if (yo.rol !== "propietaria") {
+      throw new Error("Solo la propietaria puede gestionar el equipo");
+    }
     if (rest.rol === "comercial") {
       await assertQuedaUnaPropietaria(ctx, id);
     }
@@ -58,13 +84,18 @@ export const update = mutation({
   },
 });
 
-/** Eliminar usuario (WUA-59). Reglas: no puedes eliminarte a ti misma, y no
- * puede quedar el equipo sin ninguna propietaria — se validan aquí porque son
- * invariantes de datos, no solo de UI. */
+/** Eliminar usuario (WUA-59). Reglas: solo la propietaria puede gestionar el
+ * equipo; no puedes eliminarte a ti misma; no puede quedar el equipo sin
+ * ninguna propietaria. `solicitanteId` se deriva del usuario autenticado, no
+ * se acepta como argumento del cliente (antes de WUA-8 era client-trusted). */
 export const remove = mutation({
-  args: { id: v.id("usuarios"), solicitanteId: v.id("usuarios") },
+  args: { id: v.id("usuarios") },
   handler: async (ctx, args) => {
-    if (args.id === args.solicitanteId) {
+    const yo = await requireUsuarioActual(ctx);
+    if (yo.rol !== "propietaria") {
+      throw new Error("Solo la propietaria puede gestionar el equipo");
+    }
+    if (args.id === yo._id) {
       throw new Error("No puedes eliminar tu propia cuenta");
     }
     await assertQuedaUnaPropietaria(ctx, args.id);

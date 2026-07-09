@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Users, TrendingUp, UserCog } from "lucide-react";
+import { Calendar, Users, TrendingUp, UserCog, LogOut } from "lucide-react";
 import clsx from "clsx";
+import { useAuthActions } from "@convex-dev/auth/react";
 import { Avatar } from "@/components/ui/Avatar";
-import { useMockSession } from "@/lib/session";
+import { useUsuarioActual } from "@/lib/session";
 import { useSeguimientosHoy } from "@/hooks/useSeguimientosHoy";
 
 const NAV_ITEMS = [
@@ -18,17 +19,24 @@ const NAV_ITEMS = [
 /**
  * Navegación principal (WUA-23). Sidebar 240px en escritorio (≥768px),
  * bottom tab bar en móvil. "Equipo" solo si rol === "propietaria" — mientras
- * la sesión mock carga (o el seed no se ha corrido), se trata como
- * no-propietaria para evitar que el ítem aparezca y desaparezca (parpadeo).
- * Esto es un filtro de navegación, no autorización real — ver la frontera
- * de autorización en el README.
+ * la sesión carga, se trata como no-propietaria para evitar que el ítem
+ * aparezca y desaparezca (parpadeo). Este filtro es solo de navegación/UX —
+ * la autorización real se verifica en servidor (`convex/usuarios.ts`).
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { usuario } = useMockSession();
+  const { usuario } = useUsuarioActual();
+  const { signOut } = useAuthActions();
   const { atrasadosCount } = useSeguimientosHoy();
   const esPropietaria = usuario?.rol === "propietaria";
   const items = NAV_ITEMS.filter((i) => !i.ownerOnly || esPropietaria);
+
+  async function handleLogout() {
+    await signOut();
+    // Navegación completa (no router.push): garantiza que el middleware vea
+    // la sesión ya invalidada en la siguiente petición.
+    window.location.href = "/login";
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-bg md:flex-row">
@@ -47,9 +55,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             badge={item.href === "/hoy" ? atrasadosCount : 0}
           />
         ))}
-        <div className="mt-auto flex items-center gap-2 rounded-md p-2 hover:bg-surface-2">
+        <div className="mt-auto flex items-center gap-2 rounded-md p-2">
           <Avatar nombre={usuario?.nombre ?? "?"} size={32} />
-          <span className="text-sm text-text">{usuario?.nombre ?? "Cargando…"}</span>
+          <span className="flex-1 truncate text-sm text-text">{usuario?.nombre ?? "Cargando…"}</span>
+          <button
+            type="button"
+            onClick={handleLogout}
+            aria-label="Cerrar sesión"
+            title="Cerrar sesión"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-text-subtle hover:bg-surface-2"
+          >
+            <LogOut size={18} strokeWidth={1.5} />
+          </button>
         </div>
       </aside>
 

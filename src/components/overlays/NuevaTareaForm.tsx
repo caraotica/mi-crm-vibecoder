@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/Button";
 import { OverlayShell } from "./OverlayShell";
 import { ClienteSelect } from "./ClienteSelect";
 import { useToast } from "@/lib/toast";
-import { useMockSession } from "@/lib/session";
 import { dateStringToBusinessDayEpoch } from "@/lib/seguimientoFecha";
 
 export interface NuevaTareaDraft {
@@ -29,7 +28,6 @@ interface NuevaTareaFormProps {
 export function NuevaTareaForm({ onClose, initialDraft, onOpenNuevoCliente }: NuevaTareaFormProps) {
   const crearSeguimiento = useMutation(api.seguimientos.create);
   const { showToast } = useToast();
-  const { usuario } = useMockSession();
 
   const [titulo, setTitulo] = useState(initialDraft?.titulo ?? "");
   const [clienteId, setClienteId] = useState<Id<"clientes"> | "">(initialDraft?.clienteId ?? "");
@@ -49,13 +47,12 @@ export function NuevaTareaForm({ onClose, initialDraft, onOpenNuevoCliente }: Nu
 
   async function handleSave() {
     setTriedSave(true);
-    if (!titulo.trim() || !clienteId || !fecha || !usuario) return;
+    if (!titulo.trim() || !clienteId || !fecha) return;
     setSubmitting(true);
     try {
       await crearSeguimiento({
         clienteId,
         descripcion: titulo,
-        responsableId: usuario._id,
         fechaProgramada: dateStringToBusinessDayEpoch(fecha),
         origen: "manual",
       });
@@ -79,13 +76,7 @@ export function NuevaTareaForm({ onClose, initialDraft, onOpenNuevoCliente }: Nu
       isDirty={dirty}
       isSubmitting={submitting}
       saveAction={
-        <Button
-          type="button"
-          className="w-full"
-          loading={submitting}
-          disabled={!usuario}
-          onClick={handleSave}
-        >
+        <Button type="button" className="w-full" loading={submitting} onClick={handleSave}>
           Guardar
         </Button>
       }

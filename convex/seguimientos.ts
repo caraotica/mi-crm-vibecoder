@@ -3,6 +3,7 @@ import { mutation, query } from "./functions";
 import { todayBusinessDayEpoch, toBusinessDayEpoch } from "../src/lib/seguimientoFecha";
 import { requireTrimmed } from "./validation";
 import { conflictError } from "./errors";
+import { requireUsuarioActual } from "./authGuard";
 import type { QueryCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 
@@ -66,20 +67,26 @@ export const listByCliente = query({
       .collect(),
 });
 
-/** Programar seguimiento (WUA-19) / Nueva tarea desde Hoy (WUA-62). */
+/** Programar seguimiento (WUA-19) / Nueva tarea desde Hoy (WUA-62).
+ * `responsableId` es opcional: si se omite, se asigna al usuario autenticado
+ * (WUA-62 siempre lo omite hoy). Se deja como override explícito, no
+ * eliminado del todo, porque "Programar seguimiento" (WUA-19, aún sin
+ * construir) puede necesitar asignar el seguimiento a otra persona. */
 export const create = mutation({
   args: {
     clienteId: v.id("clientes"),
     descripcion: v.string(),
-    responsableId: v.id("usuarios"),
+    responsableId: v.optional(v.id("usuarios")),
     fechaProgramada: v.number(),
     origen: v.optional(v.union(v.literal("manual"), v.literal("sistema"))),
   },
   handler: async (ctx, args) => {
     const descripcion = requireTrimmed(args.descripcion, "la descripción de la tarea", 2000);
+    const responsableId = args.responsableId ?? (await requireUsuarioActual(ctx))._id;
     return ctx.db.insert("seguimientos", {
       ...args,
       descripcion,
+      responsableId,
       origen: args.origen ?? "manual",
       completado: false,
       actualizadoEn: Date.now(),

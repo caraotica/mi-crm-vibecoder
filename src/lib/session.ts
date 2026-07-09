@@ -1,25 +1,20 @@
 "use client";
 
 import { useQuery } from "convex/react";
+import { useConvexAuth } from "@convex-dev/auth/react";
 import { api } from "@/lib/convexApi";
 
 /**
- * TODO(WUA-8): sustituir por la sesión real (Convex Auth / Clerk / etc.)
- * cuando exista login. Mientras tanto, "usuario actual" = un usuario real
- * sembrado en Convex (no un id inventado), para que responsableId/autorId
- * en las mutations sean válidos.
- *
- * Para probar el rol "comercial" (oculta la pestaña Equipo), cambia esta
- * constante al email de Carlos y recarga.
+ * WUA-8: sesión real sobre Convex Auth. Mismo shape que la sesión mock
+ * anterior (`{usuario, isLoading}`) para minimizar cambios en los sitios que
+ * ya la consumían (AppShell, formularios de overlay).
  */
-const MOCK_SESSION_EMAIL = "marta@negocio.es";
-
-export function useMockSession() {
-  const usuario = useQuery(api.usuarios.getByEmail, { email: MOCK_SESSION_EMAIL });
+export function useUsuarioActual() {
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const usuario = useQuery(api.usuarios.getCurrent, isAuthenticated ? {} : "skip");
   return {
     usuario,
-    isLoading: usuario === undefined,
-    /** El seed (`npx convex run seed:seedDemo`) no se ha corrido todavía. */
-    isMissing: usuario === null,
+    isAuthenticated,
+    isLoading: authLoading || (isAuthenticated && usuario === undefined),
   };
 }

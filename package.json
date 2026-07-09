@@ -14,6 +14,8 @@
     "convex:dev": "convex dev"
   },
   "dependencies": {
+    "@auth/core": "^0.41.2",
+    "@convex-dev/auth": "^0.0.94",
     "@radix-ui/react-dialog": "^1.1.19",
     "clsx": "^2.1.1",
     "convex": "^1.42.1",

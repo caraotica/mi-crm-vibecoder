@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { OverlayShell } from "./OverlayShell";
 import { ClienteSelect } from "./ClienteSelect";
 import { useToast } from "@/lib/toast";
-import { useMockSession } from "@/lib/session";
+import { useUsuarioActual } from "@/lib/session";
 import { dateStringToBusinessDayEpoch, todayDateInputValue } from "@/lib/seguimientoFecha";
 import type { CanalInteraccion } from "@/types";
 
@@ -28,7 +28,7 @@ interface AnotarInteraccionFormProps {
 export function AnotarInteraccionForm({ onClose }: AnotarInteraccionFormProps) {
   const crearInteraccion = useMutation(api.interacciones.create);
   const { showToast } = useToast();
-  const { usuario } = useMockSession();
+  const { usuario } = useUsuarioActual();
 
   const [clienteId, setClienteId] = useState<Id<"clientes"> | "">("");
   const [canal, setCanal] = useState<CanalInteraccion | null>(null);
@@ -56,7 +56,6 @@ export function AnotarInteraccionForm({ onClose }: AnotarInteraccionFormProps) {
         clienteId,
         canal,
         contenido,
-        autorId: usuario._id,
         fecha: fecha ? dateStringToBusinessDayEpoch(fecha) : undefined,
       });
       showToast({ message: "Interacción registrada" });

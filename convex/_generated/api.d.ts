@@ -8,11 +8,13 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
+import type * as authGuard from "../authGuard.js";
 import type * as clientes from "../clientes.js";
 import type * as errors from "../errors.js";
 import type * as functions from "../functions.js";
+import type * as http from "../http.js";
 import type * as interacciones from "../interacciones.js";
-import type * as localOnlyGuard from "../localOnlyGuard.js";
 import type * as seed from "../seed.js";
 import type * as seguimientos from "../seguimientos.js";
 import type * as suscripciones from "../suscripciones.js";
@@ -27,11 +29,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
+  authGuard: typeof authGuard;
   clientes: typeof clientes;
   errors: typeof errors;
   functions: typeof functions;
+  http: typeof http;
   interacciones: typeof interacciones;
-  localOnlyGuard: typeof localOnlyGuard;
   seed: typeof seed;
   seguimientos: typeof seguimientos;
   suscripciones: typeof suscripciones;

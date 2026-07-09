@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/Button";
 import { OverlayShell } from "./OverlayShell";
 import { ClienteSelect } from "./ClienteSelect";
 import { useToast } from "@/lib/toast";
-import { useMockSession } from "@/lib/session";
 import { dateStringToBusinessDayEpoch, todayDateInputValue } from "@/lib/seguimientoFecha";
 import { ESTADO_VENTA_LABEL, type EstadoVenta } from "@/types";
 
@@ -25,7 +24,6 @@ interface RegistrarVentaFormProps {
 export function RegistrarVentaForm({ onClose }: RegistrarVentaFormProps) {
   const crearVenta = useMutation(api.ventas.create);
   const { showToast } = useToast();
-  const { usuario } = useMockSession();
 
   const [clienteId, setClienteId] = useState<Id<"clientes"> | "">("");
   const [producto, setProducto] = useState("");
@@ -50,7 +48,7 @@ export function RegistrarVentaForm({ onClose }: RegistrarVentaFormProps) {
 
   async function handleSave() {
     setTriedSave(true);
-    if (!clienteId || !producto.trim() || !montoValido || !usuario) return;
+    if (!clienteId || !producto.trim() || !montoValido) return;
     setSubmitting(true);
     try {
       await crearVenta({
@@ -58,7 +56,6 @@ export function RegistrarVentaForm({ onClose }: RegistrarVentaFormProps) {
         producto,
         monto,
         estado,
-        autorId: usuario._id,
         fecha: fecha ? dateStringToBusinessDayEpoch(fecha) : undefined,
       });
       showToast({ message: "Venta registrada" });
@@ -81,13 +78,7 @@ export function RegistrarVentaForm({ onClose }: RegistrarVentaFormProps) {
       isDirty={dirty}
       isSubmitting={submitting}
       saveAction={
-        <Button
-          type="button"
-          className="w-full"
-          loading={submitting}
-          disabled={!usuario}
-          onClick={handleSave}
-        >
+        <Button type="button" className="w-full" loading={submitting} onClick={handleSave}>
           Guardar
         </Button>
       }

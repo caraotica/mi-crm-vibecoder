@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { authTables } from "@convex-dev/auth/server";
 
 /**
  * Esquema Convex que refleja el modelo de datos del PRD (Notion, sección "Datos")
@@ -10,8 +11,16 @@ import { v } from "convex/values";
  * (campo automático de Convex), así que no se duplica como columna propia
  * salvo que haga falta poder editarla (ver `fecha`/`fechaProgramada` explícitos
  * donde el usuario sí puede elegir la fecha, p. ej. una interacción retroactiva).
+ *
+ * `...authTables` (WUA-8) añade las tablas internas de Convex Auth (users,
+ * authAccounts, authSessions, ...) — deliberadamente separadas de nuestra
+ * propia tabla `usuarios` de perfil de app. Se enlazan por `usuarios.authId`
+ * (ver más abajo), no se fusionan, para no tener que renombrar `v.id("usuarios")`
+ * en todo el resto del schema/funciones/frontend ya construidos.
  */
 export default defineSchema({
+  ...authTables,
+
   usuarios: defineTable({
     nombre: v.string(),
     email: v.string(),
