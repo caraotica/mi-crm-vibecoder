@@ -16,21 +16,32 @@ export interface NuevaTareaDraft {
   fecha?: string;
 }
 
+interface ClienteFijo {
+  id: Id<"clientes">;
+  nombre: string;
+}
+
 interface NuevaTareaFormProps {
   onClose: () => void;
   initialDraft?: NuevaTareaDraft;
-  onOpenNuevoCliente: (draft: NuevaTareaDraft) => void;
+  onOpenNuevoCliente?: (draft: NuevaTareaDraft) => void;
+  /** Ficha de cliente (WUA-11/WUA-19): cliente ya fijado, sin selector. */
+  clienteFijo?: ClienteFijo;
 }
 
-/** Overlay "Nueva tarea" (WUA-62) — acción destacada del panel de accesos
- * rápidos de Hoy. El enlace "+ Nuevo cliente" abre NuevoClienteForm y, al
- * guardar, vuelve aquí con el cliente preseleccionado (ver HoyPage). */
-export function NuevaTareaForm({ onClose, initialDraft, onOpenNuevoCliente }: NuevaTareaFormProps) {
+/** Overlay "Nueva tarea"/"Programar seguimiento" (WUA-62/WUA-19) — acción
+ * destacada del panel de accesos rápidos de Hoy, o de la ficha de cliente
+ * (con `clienteFijo`, sin selector). El enlace "+ Nuevo cliente" abre
+ * NuevoClienteForm y, al guardar, vuelve aquí con el cliente preseleccionado
+ * (ver HoyPage) — no aplica cuando el cliente ya está fijado. */
+export function NuevaTareaForm({ onClose, initialDraft, onOpenNuevoCliente, clienteFijo }: NuevaTareaFormProps) {
   const crearSeguimiento = useMutation(api.seguimientos.create);
   const { showToast } = useToast();
 
   const [titulo, setTitulo] = useState(initialDraft?.titulo ?? "");
-  const [clienteId, setClienteId] = useState<Id<"clientes"> | "">(initialDraft?.clienteId ?? "");
+  const [clienteId, setClienteId] = useState<Id<"clientes"> | "">(
+    clienteFijo?.id ?? initialDraft?.clienteId ?? "",
+  );
   const [fecha, setFecha] = useState(initialDraft?.fecha ?? "");
   const [dirty, setDirty] = useState(!!initialDraft);
   const [submitting, setSubmitting] = useState(false);
@@ -89,20 +100,26 @@ export function NuevaTareaForm({ onClose, initialDraft, onOpenNuevoCliente }: Nu
         error={tituloErr}
         autoFocus
       />
-      <ClienteSelect
-        value={clienteId}
-        onChange={(v) => handleField(setClienteId, v)}
-        error={clienteErr}
-        headerAction={
-          <button
-            type="button"
-            onClick={() => onOpenNuevoCliente({ titulo, fecha })}
-            className="text-[13px] font-semibold text-primary hover:underline"
-          >
-            + Nuevo cliente
-          </button>
-        }
-      />
+      {clienteFijo ? (
+        <p className="text-sm text-text-muted">
+          Cliente: <span className="font-medium text-text">{clienteFijo.nombre}</span>
+        </p>
+      ) : (
+        <ClienteSelect
+          value={clienteId}
+          onChange={(v) => handleField(setClienteId, v)}
+          error={clienteErr}
+          headerAction={
+            <button
+              type="button"
+              onClick={() => onOpenNuevoCliente?.({ titulo, fecha })}
+              className="text-[13px] font-semibold text-primary hover:underline"
+            >
+              + Nuevo cliente
+            </button>
+          }
+        />
+      )}
       <Input
         label="Fecha"
         type="date"

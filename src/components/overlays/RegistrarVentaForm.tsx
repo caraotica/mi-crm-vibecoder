@@ -16,16 +16,24 @@ const ESTADO_OPTIONS: { value: EstadoVenta; label: string }[] = (
   ["abierta", "ganada", "perdida"] as const
 ).map((value) => ({ value, label: ESTADO_VENTA_LABEL[value] }));
 
-interface RegistrarVentaFormProps {
-  onClose: () => void;
+interface ClienteFijo {
+  id: Id<"clientes">;
+  nombre: string;
 }
 
-/** Overlay "Registrar venta" (WUA-13), abierto fuera de una ficha desde Hoy. */
-export function RegistrarVentaForm({ onClose }: RegistrarVentaFormProps) {
+interface RegistrarVentaFormProps {
+  onClose: () => void;
+  /** Ficha de cliente (WUA-11): cliente ya fijado, sin selector. */
+  clienteFijo?: ClienteFijo;
+}
+
+/** Overlay "Registrar venta" (WUA-13), abierto desde Hoy (sin cliente de
+ * contexto) o desde la ficha de un cliente (con `clienteFijo`, sin selector). */
+export function RegistrarVentaForm({ onClose, clienteFijo }: RegistrarVentaFormProps) {
   const crearVenta = useMutation(api.ventas.create);
   const { showToast } = useToast();
 
-  const [clienteId, setClienteId] = useState<Id<"clientes"> | "">("");
+  const [clienteId, setClienteId] = useState<Id<"clientes"> | "">(clienteFijo?.id ?? "");
   const [producto, setProducto] = useState("");
   const [importe, setImporte] = useState("");
   const [estado, setEstado] = useState<EstadoVenta>("abierta");
@@ -83,7 +91,13 @@ export function RegistrarVentaForm({ onClose }: RegistrarVentaFormProps) {
         </Button>
       }
     >
-      <ClienteSelect value={clienteId} onChange={(v) => handleField(setClienteId, v)} error={clienteErr} />
+      {clienteFijo ? (
+        <p className="text-sm text-text-muted">
+          Cliente: <span className="font-medium text-text">{clienteFijo.nombre}</span>
+        </p>
+      ) : (
+        <ClienteSelect value={clienteId} onChange={(v) => handleField(setClienteId, v)} error={clienteErr} />
+      )}
       <Input
         label="Qué se vende"
         placeholder="Licencia anual, servicio…"

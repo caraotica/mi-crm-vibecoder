@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { OverlayShell } from "./OverlayShell";
 import { useToast } from "@/lib/toast";
 import type { CanalOrigen } from "@/types";
+import type { Doc } from "@/lib/convexApi";
 
 const CANAL_OPTIONS: { value: CanalOrigen; label: string }[] = [
   { value: "web", label: "Web" },
@@ -19,21 +20,27 @@ const CANAL_OPTIONS: { value: CanalOrigen; label: string }[] = [
 
 interface NuevoClienteFormProps {
   onClose: () => void;
-  onCreated: (id: Id<"clientes">) => void;
+  onCreated?: (id: Id<"clientes">) => void;
+  /** Ficha de cliente (WUA-11): si se pasa, el formulario abre en modo edición
+   * (precarga los campos y guarda con `clientes.update` en vez de `create`). */
+  cliente?: Doc<"clientes">;
+  onUpdated?: () => void;
 }
 
 /** Overlay "Nuevo cliente" (WUA-10) — alta rápida, también accesible desde
- * el flujo anidado de "Nueva tarea" (WUA-62). */
-export function NuevoClienteForm({ onClose, onCreated }: NuevoClienteFormProps) {
+ * el flujo anidado de "Nueva tarea" (WUA-62), o en modo edición desde la
+ * ficha de cliente (WUA-11, prop `cliente`). */
+export function NuevoClienteForm({ onClose, onCreated, cliente, onUpdated }: NuevoClienteFormProps) {
   const crearCliente = useMutation(api.clientes.create);
+  const actualizarCliente = useMutation(api.clientes.update);
   const { showToast } = useToast();
 
-  const [nombre, setNombre] = useState("");
-  const [empresa, setEmpresa] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [email, setEmail] = useState("");
-  const [canalOrigen, setCanalOrigen] = useState<CanalOrigen | null>(null);
-  const [nota, setNota] = useState("");
+  const [nombre, setNombre] = useState(cliente?.nombre ?? "");
+  const [empresa, setEmpresa] = useState(cliente?.empresa ?? "");
+  const [telefono, setTelefono] = useState(cliente?.telefono ?? "");
+  const [email, setEmail] = useState(cliente?.email ?? "");
+  const [canalOrigen, setCanalOrigen] = useState<CanalOrigen | null>(cliente?.canalOrigen ?? null);
+  const [nota, setNota] = useState(cliente?.nota ?? "");
   const [dirty, setDirty] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [triedSave, setTriedSave] = useState(false);
@@ -52,16 +59,30 @@ export function NuevoClienteForm({ onClose, onCreated }: NuevoClienteFormProps) 
     if (!nombre.trim() || (!telefono.trim() && !email.trim())) return;
     setSubmitting(true);
     try {
-      const id = await crearCliente({
-        nombre,
-        empresa: empresa || undefined,
-        telefono: telefono || undefined,
-        email: email || undefined,
-        nota: nota || undefined,
-        canalOrigen: canalOrigen ?? undefined,
-      });
-      showToast({ message: "Cliente añadido" });
-      onCreated(id);
+      if (cliente) {
+        await actualizarCliente({
+          id: cliente._id,
+          nombre,
+          empresa: empresa || undefined,
+          telefono: telefono || undefined,
+          email: email || undefined,
+          nota: nota || undefined,
+          canalOrigen: canalOrigen ?? undefined,
+        });
+        showToast({ message: "Cliente actualizado" });
+        onUpdated?.();
+      } else {
+        const id = await crearCliente({
+          nombre,
+          empresa: empresa || undefined,
+          telefono: telefono || undefined,
+          email: email || undefined,
+          nota: nota || undefined,
+          canalOrigen: canalOrigen ?? undefined,
+        });
+        showToast({ message: "Cliente añadido" });
+        onCreated?.(id);
+      }
     } catch (e) {
       showToast({
         message: e instanceof Error ? e.message : "No se pudo guardar el cliente",
@@ -76,7 +97,7 @@ export function NuevoClienteForm({ onClose, onCreated }: NuevoClienteFormProps) 
     <OverlayShell
       open
       onClose={onClose}
-      title="Nuevo cliente"
+      title={cliente ? "Editar cliente" : "Nuevo cliente"}
       isDirty={dirty}
       isSubmitting={submitting}
       saveAction={

@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./functions";
 import { requireTrimmed, optionalTrimmed } from "./validation";
 import type { QueryCtx } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 
 const canalOrigenV = v.optional(
   v.union(
@@ -65,6 +65,73 @@ export const get = query({
     const id = ctx.db.normalizeId("clientes", args.id);
     if (!id) return null;
     return ctx.db.get(id);
+  },
+});
+
+/** Datos completos de la ficha de cliente (WUA-11): el cliente, sus
+ * seguimientos pendientes y el historial combinado (interacciones + ventas +
+ * seguimientos completados), todo enriquecido con nombres de responsable/autor
+ * para que el frontend no tenga que cruzar 4 listas él mismo — mismo criterio
+ * que `seguimientos.listHoy`. */
+export const getFicha = query({
+  args: { id: v.string() },
+  handler: async (ctx, args) => {
+    const id = ctx.db.normalizeId("clientes", args.id);
+    if (!id) return null;
+    const cliente = await ctx.db.get(id);
+    if (!cliente) return null;
+
+    const [seguimientos, interacciones, ventas] = await Promise.all([
+      ctx.db.query("seguimientos").withIndex("by_cliente", (q) => q.eq("clienteId", id)).collect(),
+      ctx.db.query("interacciones").withIndex("by_cliente", (q) => q.eq("clienteId", id)).collect(),
+      ctx.db.query("ventasPuntuales").withIndex("by_cliente", (q) => q.eq("clienteId", id)).collect(),
+    ]);
+
+    const usuarioIds = new Set<Id<"usuarios">>();
+    for (const s of seguimientos) usuarioIds.add(s.responsableId);
+    for (const i of interacciones) usuarioIds.add(i.autorId);
+    for (const v of ventas) usuarioIds.add(v.autorId);
+    const usuarios = await Promise.all([...usuarioIds].map((uid) => ctx.db.get(uid)));
+    const nombrePorUsuario = new Map(
+      usuarios.filter((u): u is Doc<"usuarios"> => u !== null).map((u) => [u._id, u.nombre]),
+    );
+    const nombreDe = (uid: Id<"usuarios">) => nombrePorUsuario.get(uid) ?? "—";
+
+    const seguimientosPendientes = seguimientos
+      .filter((s) => !s.completado)
+      .map((s) => ({ ...s, responsableNombre: nombreDe(s.responsableId) }))
+      .sort((a, b) => a.fechaProgramada - b.fechaProgramada);
+
+    const historial = [
+      ...seguimientos
+        .filter((s) => s.completado)
+        .map((s) => ({
+          tipo: "seguimiento_completado" as const,
+          id: s._id,
+          fecha: s.fechaCompletado ?? s.actualizadoEn,
+          descripcion: s.descripcion,
+          responsableNombre: nombreDe(s.responsableId),
+        })),
+      ...interacciones.map((i) => ({
+        tipo: "interaccion" as const,
+        id: i._id,
+        fecha: i.fecha,
+        canal: i.canal,
+        contenido: i.contenido,
+        autorNombre: nombreDe(i.autorId),
+      })),
+      ...ventas.map((v) => ({
+        tipo: "venta" as const,
+        id: v._id,
+        fecha: v.fecha,
+        producto: v.producto,
+        monto: v.monto,
+        estado: v.estado,
+        autorNombre: nombreDe(v.autorId),
+      })),
+    ].sort((a, b) => b.fecha - a.fecha);
+
+    return { cliente, seguimientosPendientes, historial };
   },
 });
 

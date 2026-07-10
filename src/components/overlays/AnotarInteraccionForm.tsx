@@ -20,17 +20,25 @@ const CANAL_OPTIONS: { value: CanalInteraccion; label: string }[] = [
   { value: "en_persona", label: "En persona" },
 ];
 
-interface AnotarInteraccionFormProps {
-  onClose: () => void;
+interface ClienteFijo {
+  id: Id<"clientes">;
+  nombre: string;
 }
 
-/** Overlay "Anotar interacción" (WUA-12), abierto fuera de una ficha desde Hoy. */
-export function AnotarInteraccionForm({ onClose }: AnotarInteraccionFormProps) {
+interface AnotarInteraccionFormProps {
+  onClose: () => void;
+  /** Ficha de cliente (WUA-11): cliente ya fijado, sin selector. */
+  clienteFijo?: ClienteFijo;
+}
+
+/** Overlay "Anotar interacción" (WUA-12), abierto desde Hoy (sin cliente de
+ * contexto) o desde la ficha de un cliente (con `clienteFijo`, sin selector). */
+export function AnotarInteraccionForm({ onClose, clienteFijo }: AnotarInteraccionFormProps) {
   const crearInteraccion = useMutation(api.interacciones.create);
   const { showToast } = useToast();
   const { usuario } = useUsuarioActual();
 
-  const [clienteId, setClienteId] = useState<Id<"clientes"> | "">("");
+  const [clienteId, setClienteId] = useState<Id<"clientes"> | "">(clienteFijo?.id ?? "");
   const [canal, setCanal] = useState<CanalInteraccion | null>(null);
   const [fecha, setFecha] = useState(todayDateInputValue());
   const [contenido, setContenido] = useState("");
@@ -89,7 +97,13 @@ export function AnotarInteraccionForm({ onClose }: AnotarInteraccionFormProps) {
         </Button>
       }
     >
-      <ClienteSelect value={clienteId} onChange={(v) => handleField(setClienteId, v)} error={clienteErr} />
+      {clienteFijo ? (
+        <p className="text-sm text-text-muted">
+          Cliente: <span className="font-medium text-text">{clienteFijo.nombre}</span>
+        </p>
+      ) : (
+        <ClienteSelect value={clienteId} onChange={(v) => handleField(setClienteId, v)} error={clienteErr} />
+      )}
       <SegmentedControl
         label="Canal"
         options={CANAL_OPTIONS}
