@@ -7,15 +7,8 @@ import { useQuery } from "convex/react";
 import { api } from "@/lib/convexApi";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
-import { ESTADO_CLIENTE_LABEL, type EstadoCliente } from "@/types";
-
-const ESTADO_BADGE_STATUS: Record<EstadoCliente, "info" | "primary" | "warning" | "success" | "error"> = {
-  nuevo_lead: "info",
-  en_negociacion: "primary",
-  pendiente: "warning",
-  ganado: "success",
-  perdido: "error",
-};
+import { ESTADO_CLIENTE_LABEL } from "@/types";
+import { ESTADO_BADGE_STATUS } from "@/lib/clienteEstado";
 
 /**
  * Stub de ficha de cliente (WUA-11 todavía no construida). `clientes.get`

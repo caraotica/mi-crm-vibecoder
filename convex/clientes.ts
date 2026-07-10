@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query } from "./functions";
 import { requireTrimmed, optionalTrimmed } from "./validation";
+import type { QueryCtx } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 
 const canalOrigenV = v.optional(
   v.union(
@@ -11,17 +13,44 @@ const canalOrigenV = v.optional(
   ),
 );
 
+const MARCA_DIACRITICA_DESDE = 0x300; // U+0300, inicio del bloque Unicode "Combining Diacritical Marks"
+const MARCA_DIACRITICA_HASTA = 0x36f; // U+036F, fin de ese bloque
+
+/** Minúsculas + sin diacríticos, para que la búsqueda ignore acentos ("jose" encuentra "José"). */
+function normalizar(texto: string): string {
+  return Array.from(texto.toLowerCase().normalize("NFD"))
+    .filter((ch) => {
+      const code = ch.codePointAt(0)!;
+      return code < MARCA_DIACRITICA_DESDE || code > MARCA_DIACRITICA_HASTA;
+    })
+    .join("");
+}
+
+/** Fecha de la interacción más reciente del cliente, o su alta si no tiene ninguna (WUA-9). */
+async function ultimoContacto(ctx: QueryCtx, cliente: Doc<"clientes">): Promise<number> {
+  const ultima = await ctx.db
+    .query("interacciones")
+    .withIndex("by_cliente", (q) => q.eq("clienteId", cliente._id))
+    .order("desc")
+    .first();
+  return ultima?.fecha ?? cliente._creationTime;
+}
+
 /** Lista de clientes con búsqueda en vivo por nombre, teléfono o email (WUA-9). */
 export const list = query({
   args: { query: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const clientes = await ctx.db.query("clientes").order("desc").collect();
-    const q = (args.query ?? "").trim().toLowerCase();
-    if (!q) return clientes;
-    return clientes.filter((c) =>
-      [c.nombre, c.telefono, c.email]
-        .filter(Boolean)
-        .some((field) => field!.toLowerCase().includes(q)),
+    const q = normalizar((args.query ?? "").trim());
+    const filtrados = q
+      ? clientes.filter((c) =>
+          [c.nombre, c.telefono, c.email]
+            .filter(Boolean)
+            .some((field) => normalizar(field!).includes(q)),
+        )
+      : clientes;
+    return Promise.all(
+      filtrados.map(async (c) => ({ ...c, ultimoContacto: await ultimoContacto(ctx, c) })),
     );
   },
 });

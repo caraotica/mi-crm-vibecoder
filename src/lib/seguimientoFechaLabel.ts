@@ -8,6 +8,18 @@ import { diasDeAtraso, toBusinessDayEpoch, todayBusinessDayEpoch } from "./segui
  * que sí se importa desde convex/seguimientos.ts y debe quedarse solo con
  * `Date`/`Intl` nativos.
  */
+/**
+ * Etiqueta de "último contacto" para una fila de cliente (WUA-9): a diferencia
+ * de `etiquetaFechaRelativa` (fechas futuras de seguimiento, "Vence"/"Venció"),
+ * esta es siempre sobre el pasado, así que no necesita esos casos.
+ */
+export function etiquetaUltimoContacto(fecha: number, hoy: number = todayBusinessDayEpoch()): string {
+  const dias = diasDeAtraso(fecha, hoy);
+  if (dias <= 0) return "Hoy";
+  if (dias === 1) return "Ayer";
+  return `Hace ${dias} días`;
+}
+
 export function etiquetaFechaRelativa(fechaProgramada: number, hoy: number = todayBusinessDayEpoch()): string {
   const dias = diasDeAtraso(fechaProgramada, hoy);
   if (dias === 0) return "Vence hoy";

@@ -6,15 +6,8 @@ import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 import { ESTADO_CLIENTE_LABEL, type EstadoCliente } from "@/types";
 import { etiquetaFechaRelativa } from "@/lib/seguimientoFechaLabel";
+import { ESTADO_BADGE_STATUS } from "@/lib/clienteEstado";
 import type { Id } from "@/lib/convexApi";
-
-const ESTADO_BADGE_STATUS: Record<EstadoCliente, "info" | "primary" | "warning" | "success" | "error"> = {
-  nuevo_lead: "info",
-  en_negociacion: "primary",
-  pendiente: "warning",
-  ganado: "success",
-  perdido: "error",
-};
 
 interface SeguimientoItemProps {
   clienteId: Id<"clientes">;
