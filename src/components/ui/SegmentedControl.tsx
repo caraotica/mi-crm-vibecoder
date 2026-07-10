@@ -12,9 +12,11 @@ interface SegmentedControlProps<T extends string> {
   onChange: (value: T | null) => void;
   allowDeselect?: boolean;
   error?: string;
+  disabled?: boolean;
 }
 
-/** Grupo de chips reutilizable — Canal (interacción), Estado (venta), Canal de origen (cliente). */
+/** Grupo de chips reutilizable — Canal (interacción), Estado (venta), Canal de origen (cliente),
+ * estado comercial del cliente (ficha, WUA-63). */
 export function SegmentedControl<T extends string>({
   label,
   options,
@@ -22,6 +24,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   allowDeselect = false,
   error,
+  disabled = false,
 }: SegmentedControlProps<T>) {
   return (
     <div className="flex flex-col gap-2">
@@ -33,10 +36,11 @@ export function SegmentedControl<T extends string>({
             <button
               key={opt.value}
               type="button"
+              disabled={disabled}
               onClick={() => onChange(active && allowDeselect ? null : opt.value)}
               aria-pressed={active}
               className={clsx(
-                "h-9 rounded-full border px-3.5 text-[13px] font-medium transition-colors duration-150",
+                "h-9 rounded-full border px-3.5 text-[13px] font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60",
                 active
                   ? "border-primary bg-primary-subtle text-primary"
                   : "border-border-strong bg-surface text-text-muted hover:bg-surface-2",

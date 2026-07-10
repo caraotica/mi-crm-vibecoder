@@ -10,7 +10,8 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { ESTADO_CLIENTE_LABEL, CANAL_ORIGEN_LABEL } from "@/types";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { ESTADO_CLIENTE_LABEL, CANAL_ORIGEN_LABEL, type EstadoCliente } from "@/types";
 import { ESTADO_BADGE_STATUS } from "@/lib/clienteEstado";
 import { useToast } from "@/lib/toast";
 import { FichaAccionesPanel, type FichaAccionKind } from "@/components/clientes/FichaAccionesPanel";
@@ -23,6 +24,10 @@ import { RegistrarVentaForm } from "@/components/overlays/RegistrarVentaForm";
 
 type FichaOverlay = "editar" | FichaAccionKind | null;
 
+const ESTADO_OPTIONS: { value: EstadoCliente; label: string }[] = (
+  ["nuevo_lead", "en_negociacion", "pendiente", "ganado", "perdido"] as const
+).map((value) => ({ value, label: ESTADO_CLIENTE_LABEL[value] }));
+
 /** Ficha de cliente (WUA-11): datos, acciones rápidas, seguimientos
  * pendientes e historial combinado (interacciones + ventas + seguimientos
  * completados). `clientes.getFicha` usa normalizeId internamente, así que un
@@ -34,6 +39,8 @@ export default function FichaClientePage() {
   const { showToast } = useToast();
   const [overlay, setOverlay] = useState<FichaOverlay>(null);
   const [pendingIds, setPendingIds] = useState<ReadonlySet<Id<"seguimientos">>>(new Set());
+  const [guardandoEstado, setGuardandoEstado] = useState(false);
+  const actualizarEstado = useMutation(api.clientes.update);
 
   const marcarHecho = useMutation(api.seguimientos.marcarHecho).withOptimisticUpdate(
     (localStore, args) => {
@@ -98,6 +105,18 @@ export default function FichaClientePage() {
   const { cliente, seguimientosPendientes, historial } = ficha;
   const clienteFijo = { id: cliente._id, nombre: cliente.nombre };
 
+  async function handleCambiarEstado(estado: EstadoCliente | null) {
+    if (!estado || estado === cliente.estado || guardandoEstado) return;
+    setGuardandoEstado(true);
+    try {
+      await actualizarEstado({ id: cliente._id, estado });
+    } catch (e) {
+      showToast({ message: e instanceof Error ? e.message : "No se pudo actualizar el estado", variant: "error" });
+    } finally {
+      setGuardandoEstado(false);
+    }
+  }
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5 p-5 md:p-8">
       <Link
@@ -153,6 +172,16 @@ export default function FichaClientePage() {
             )}
           </div>
         )}
+
+        <div className="mt-4 border-t border-border pt-4">
+          <SegmentedControl
+            label="Estado"
+            options={ESTADO_OPTIONS}
+            value={cliente.estado}
+            onChange={handleCambiarEstado}
+            disabled={guardandoEstado}
+          />
+        </div>
       </Card>
 
       <FichaAccionesPanel onOpen={setOverlay} />
