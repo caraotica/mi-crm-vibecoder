@@ -24,6 +24,17 @@ export function todayDateInputValue(): string {
   return `${y}-${m}-${day}`;
 }
 
+/** Igual que `todayDateInputValue` pero para "mañana" (WUA-19: default de fecha
+ * al programar un seguimiento desde la ficha de cliente). */
+export function mananaDateInputValue(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 /** Convierte un string "YYYY-MM-DD" (de <input type="date">, sin TZ) a epoch UTC-medianoche. */
 export function dateStringToBusinessDayEpoch(dateString: string): number {
   const [y, m, d] = dateString.split("-").map(Number);

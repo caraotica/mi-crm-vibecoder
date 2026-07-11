@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api, type Id } from "@/lib/convexApi";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { OverlayShell } from "./OverlayShell";
 import { ClienteSelect } from "./ClienteSelect";
 import { useToast } from "@/lib/toast";
-import { dateStringToBusinessDayEpoch } from "@/lib/seguimientoFecha";
+import { useUsuarioActual } from "@/lib/session";
+import { dateStringToBusinessDayEpoch, mananaDateInputValue } from "@/lib/seguimientoFecha";
 
 export interface NuevaTareaDraft {
   titulo?: string;
@@ -37,19 +39,28 @@ interface NuevaTareaFormProps {
 export function NuevaTareaForm({ onClose, initialDraft, onOpenNuevoCliente, clienteFijo }: NuevaTareaFormProps) {
   const crearSeguimiento = useMutation(api.seguimientos.create);
   const { showToast } = useToast();
+  const { usuario: usuarioActual } = useUsuarioActual();
+  const usuarios = useQuery(api.usuarios.list, clienteFijo ? {} : "skip");
 
   const [titulo, setTitulo] = useState(initialDraft?.titulo ?? "");
   const [clienteId, setClienteId] = useState<Id<"clientes"> | "">(
     clienteFijo?.id ?? initialDraft?.clienteId ?? "",
   );
-  const [fecha, setFecha] = useState(initialDraft?.fecha ?? "");
+  const [fecha, setFecha] = useState(initialDraft?.fecha ?? (clienteFijo ? mananaDateInputValue() : ""));
+  const [responsableIdElegido, setResponsableIdElegido] = useState<Id<"usuarios"> | "">("");
   const [dirty, setDirty] = useState(!!initialDraft);
   const [submitting, setSubmitting] = useState(false);
   const [triedSave, setTriedSave] = useState(false);
 
+  // Sin elección explícita, el responsable por defecto es el usuario de sesión
+  // (WUA-19) — se deriva en cada render en vez de sincronizarse con un efecto,
+  // porque `usuarioActual` llega async y no hay nada que "suscribir".
+  const responsableId = responsableIdElegido || usuarioActual?._id || "";
+
   const tituloErr = triedSave && !titulo.trim() ? "Falta el título" : undefined;
   const clienteErr = triedSave && !clienteId ? "Selecciona un cliente" : undefined;
   const fechaErr = triedSave && !fecha ? "Falta la fecha" : undefined;
+  const responsableErr = triedSave && clienteFijo && !responsableId ? "Selecciona un responsable" : undefined;
 
   function handleField<T>(setter: (v: T) => void, value: T) {
     setDirty(true);
@@ -58,7 +69,7 @@ export function NuevaTareaForm({ onClose, initialDraft, onOpenNuevoCliente, clie
 
   async function handleSave() {
     setTriedSave(true);
-    if (!titulo.trim() || !clienteId || !fecha) return;
+    if (!titulo.trim() || !clienteId || !fecha || (clienteFijo && !responsableId)) return;
     setSubmitting(true);
     try {
       await crearSeguimiento({
@@ -66,6 +77,7 @@ export function NuevaTareaForm({ onClose, initialDraft, onOpenNuevoCliente, clie
         descripcion: titulo,
         fechaProgramada: dateStringToBusinessDayEpoch(fecha),
         origen: "manual",
+        responsableId: clienteFijo && responsableId ? responsableId : undefined,
       });
       showToast({ message: "Tarea creada" });
       onClose();
@@ -127,6 +139,15 @@ export function NuevaTareaForm({ onClose, initialDraft, onOpenNuevoCliente, clie
         onChange={(e) => handleField(setFecha, e.target.value)}
         error={fechaErr}
       />
+      {clienteFijo && (
+        <SegmentedControl
+          label="Responsable"
+          options={(usuarios ?? []).map((u) => ({ value: u._id, label: u.nombre }))}
+          value={responsableId || null}
+          onChange={(v) => v && handleField(setResponsableIdElegido, v)}
+          error={responsableErr}
+        />
+      )}
     </OverlayShell>
   );
 }
