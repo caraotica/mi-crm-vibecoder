@@ -107,6 +107,12 @@ export const ESTADO_SUSCRIPCION_LABEL: Record<EstadoSuscripcion, string> = {
   cancelada: "Cancelada",
 };
 
+export const FRECUENCIA_SUSCRIPCION_LABEL: Record<FrecuenciaSuscripcion, string> = {
+  mensual: "Mensual",
+  trimestral: "Trimestral",
+  anual: "Anual",
+};
+
 export const CANAL_INTERACCION_LABEL: Record<CanalInteraccion, string> = {
   llamada: "Llamada",
   email: "Email",
