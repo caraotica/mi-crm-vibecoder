@@ -81,10 +81,11 @@ export const getFicha = query({
     const cliente = await ctx.db.get(id);
     if (!cliente) return null;
 
-    const [seguimientos, interacciones, ventas] = await Promise.all([
+    const [seguimientos, interacciones, ventas, suscripciones] = await Promise.all([
       ctx.db.query("seguimientos").withIndex("by_cliente", (q) => q.eq("clienteId", id)).collect(),
       ctx.db.query("interacciones").withIndex("by_cliente", (q) => q.eq("clienteId", id)).collect(),
       ctx.db.query("ventasPuntuales").withIndex("by_cliente", (q) => q.eq("clienteId", id)).collect(),
+      ctx.db.query("suscripciones").withIndex("by_cliente", (q) => q.eq("clienteId", id)).collect(),
     ]);
 
     const usuarioIds = new Set<Id<"usuarios">>();
@@ -128,6 +129,16 @@ export const getFicha = query({
         monto: v.monto,
         estado: v.estado,
         autorNombre: nombreDe(v.autorId),
+      })),
+      ...suscripciones.map((sus) => ({
+        tipo: "suscripcion" as const,
+        id: sus._id,
+        fecha: sus.fechaInicio,
+        producto: sus.producto,
+        monto: sus.monto,
+        frecuencia: sus.frecuencia,
+        fechaProximoCobro: sus.fechaProximoCobro,
+        estado: sus.estado,
       })),
     ].sort((a, b) => b.fecha - a.fecha);
 

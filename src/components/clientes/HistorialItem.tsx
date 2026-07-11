@@ -1,13 +1,32 @@
-import { Phone, Mail, MessageCircle, User, CheckCircle2, CircleDollarSign } from "lucide-react";
+import { Phone, Mail, MessageCircle, User, CheckCircle2, CircleDollarSign, Repeat } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import clsx from "clsx";
 import { Badge, type BadgeStatus } from "@/components/ui/Badge";
-import { ESTADO_VENTA_LABEL, CANAL_INTERACCION_LABEL, type CanalInteraccion, type EstadoVenta } from "@/types";
+import {
+  ESTADO_VENTA_LABEL,
+  ESTADO_SUSCRIPCION_LABEL,
+  FRECUENCIA_SUSCRIPCION_LABEL,
+  CANAL_INTERACCION_LABEL,
+  type CanalInteraccion,
+  type EstadoVenta,
+  type EstadoSuscripcion,
+  type FrecuenciaSuscripcion,
+} from "@/types";
 
 export type HistorialEntry =
   | { tipo: "seguimiento_completado"; id: string; fecha: number; descripcion: string; responsableNombre: string }
   | { tipo: "interaccion"; id: string; fecha: number; canal: CanalInteraccion; contenido: string; autorNombre: string }
-  | { tipo: "venta"; id: string; fecha: number; producto: string; monto: number; estado: EstadoVenta; autorNombre: string };
+  | { tipo: "venta"; id: string; fecha: number; producto: string; monto: number; estado: EstadoVenta; autorNombre: string }
+  | {
+      tipo: "suscripcion";
+      id: string;
+      fecha: number;
+      producto: string;
+      monto: number;
+      frecuencia: FrecuenciaSuscripcion;
+      fechaProximoCobro: number;
+      estado: EstadoSuscripcion;
+    };
 
 const CANAL_ICONO: Record<CanalInteraccion, LucideIcon> = {
   llamada: Phone,
@@ -20,6 +39,12 @@ const ESTADO_VENTA_BADGE: Record<EstadoVenta, BadgeStatus> = {
   abierta: "info",
   ganada: "success",
   perdida: "error",
+};
+
+const ESTADO_SUSCRIPCION_BADGE: Record<EstadoSuscripcion, BadgeStatus> = {
+  activa: "success",
+  pago_fallido: "error",
+  cancelada: "neutral",
 };
 
 const formatoImporte = new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" });
@@ -69,6 +94,31 @@ export function HistorialItem({ entry }: { entry: HistorialEntry }) {
           <span className="text-xs text-text-subtle">
             Registrado por {entry.autorNombre} · {fechaLabel}
           </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (entry.tipo === "suscripcion") {
+    return (
+      <div className="flex items-start gap-3 py-3">
+        <IconoCirculo icon={Repeat} className="bg-primary-subtle text-primary" />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[15px] font-semibold text-text">{entry.producto}</span>
+            <Badge status={ESTADO_SUSCRIPCION_BADGE[entry.estado]} dot={false}>
+              {ESTADO_SUSCRIPCION_LABEL[entry.estado]}
+            </Badge>
+          </div>
+          <span className="text-[15px] text-text">
+            {formatoImporte.format(entry.monto)} / {FRECUENCIA_SUSCRIPCION_LABEL[entry.frecuencia]}
+          </span>
+          {entry.estado === "activa" && (
+            <span className="text-xs text-text-subtle">
+              Próximo cobro: {formatoFecha.format(new Date(entry.fechaProximoCobro))}
+            </span>
+          )}
+          <span className="text-xs text-text-subtle">Inicio: {fechaLabel}</span>
         </div>
       </div>
     );
