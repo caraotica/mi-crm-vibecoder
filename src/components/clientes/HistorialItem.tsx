@@ -2,6 +2,7 @@ import { Phone, Mail, MessageCircle, User, CheckCircle2, CircleDollarSign, Repea
 import type { LucideIcon } from "lucide-react";
 import clsx from "clsx";
 import { Badge, type BadgeStatus } from "@/components/ui/Badge";
+import { ESTADO_VENTA_BADGE_STATUS } from "@/lib/ventaEstado";
 import {
   ESTADO_VENTA_LABEL,
   ESTADO_SUSCRIPCION_LABEL,
@@ -33,12 +34,6 @@ const CANAL_ICONO: Record<CanalInteraccion, LucideIcon> = {
   email: Mail,
   whatsapp: MessageCircle,
   en_persona: User,
-};
-
-const ESTADO_VENTA_BADGE: Record<EstadoVenta, BadgeStatus> = {
-  abierta: "info",
-  ganada: "success",
-  perdida: "error",
 };
 
 const ESTADO_SUSCRIPCION_BADGE: Record<EstadoSuscripcion, BadgeStatus> = {
@@ -86,7 +81,7 @@ export function HistorialItem({ entry }: { entry: HistorialEntry }) {
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex items-center gap-2">
             <span className="text-[15px] font-semibold text-text">{entry.producto}</span>
-            <Badge status={ESTADO_VENTA_BADGE[entry.estado]} dot={false}>
+            <Badge status={ESTADO_VENTA_BADGE_STATUS[entry.estado]} dot={false}>
               {ESTADO_VENTA_LABEL[entry.estado]}
             </Badge>
           </div>
