@@ -6,10 +6,7 @@ import { ConvexError } from "convex/values";
 import { Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-
-function esEmailValido(email: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
+import { esEmailValido } from "@/lib/email";
 
 function errorMessage(e: unknown): string {
   if (e instanceof ConvexError && e.data && typeof e.data === "object" && "message" in e.data) {
